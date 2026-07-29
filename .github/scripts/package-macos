@@ -98,6 +98,9 @@ package() {
     "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
 
   local output_name="${product_name}-${product_version}-${host_os}-universal"
+  local -a pkg_candidates=(
+    ${project_root}/release/${config}/${product_name}-${product_version}-macos-*-Installer.pkg(N)
+  )
 
   if [[ ! -d ${project_root}/release/${config}/${product_name}.plugin ]] {
     log_error 'No release artifact found. Run the build script or the CMake install procedure first.'
@@ -105,10 +108,13 @@ package() {
   }
 
   if (( package )) {
-    if [[ ! -f ${project_root}/release/${config}/${product_name}.pkg ]] {
+    if (( ! ${#pkg_candidates} )) {
       log_error 'Installer Package not found. Run the build script or the CMake build and install procedures first.'
       return 2
     }
+
+    local source_pkg=${pkg_candidates[1]}
+    local installer_name=${source_pkg:t}
 
     log_group "Packaging ${product_name}..."
     pushd ${project_root}
@@ -120,13 +126,13 @@ package() {
     if (( codesign )) {
       productsign \
         --sign "${CODESIGN_IDENT_INSTALLER}" \
-        ${project_root}/release/${config}/${product_name}.pkg \
-        ${project_root}/release/${output_name}.pkg
+        ${source_pkg} \
+        ${project_root}/release/${installer_name}
 
-      rm ${project_root}/release/${config}/${product_name}.pkg
+      rm ${source_pkg}
     } else {
-      mv ${project_root}/release/${config}/${product_name}.pkg \
-        ${project_root}/release/${output_name}.pkg
+      mv ${source_pkg} \
+        ${project_root}/release/${installer_name}
     }
 
     if (( codesign && notarize )) {
@@ -135,17 +141,17 @@ package() {
         return 2
       }
 
-      if [[ ! -f ${project_root}/release/${output_name}.pkg ]] {
+      if [[ ! -f ${project_root}/release/${installer_name} ]] {
         log_error "No package for notarization found."
         return 2
       }
 
       xcrun notarytool store-credentials "${product_name}-Codesign-Password" --apple-id "${CODESIGN_IDENT_USER}" --team-id "${CODESIGN_TEAM}" --password "${CODESIGN_IDENT_PASS}"
-      xcrun notarytool submit ${project_root}/release/${output_name}.pkg --keychain-profile "${product_name}-Codesign-Password" --wait
+      xcrun notarytool submit ${project_root}/release/${installer_name} --keychain-profile "${product_name}-Codesign-Password" --wait
 
       local -i _status=0
 
-      xcrun stapler staple ${project_root}/release/${output_name}.pkg || _status=1
+      xcrun stapler staple ${project_root}/release/${installer_name} || _status=1
 
       if (( _status )) {
         log_error "Notarization failed. Use 'xcrun notarytool log <submission ID>' to check for errors."

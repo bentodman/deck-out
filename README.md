@@ -81,7 +81,7 @@ cmake --install build_macos --config RelWithDebInfo --prefix release/RelWithDebI
 
 Artifacts:
 
-- `release/RelWithDebInfo/deck-out.pkg` — installer
+- `release/RelWithDebInfo/deck-out-*-macos-*-Installer.pkg` — installer
 - `release/RelWithDebInfo/deck-out.plugin` — plugin bundle (manual install)
 
 Optional: put machine-specific overrides (local OBS paths, `CMAKE_OSX_ARCHITECTURES`, etc.) in a gitignored `CMakeUserPresets.json`.

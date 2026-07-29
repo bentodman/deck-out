@@ -67,6 +67,29 @@ function(set_target_properties_plugin target)
   install(TARGETS ${target} LIBRARY DESTINATION .)
   install(FILES "$<TARGET_BUNDLE_DIR:${target}>.dsym" CONFIGURATIONS Release DESTINATION . OPTIONAL)
 
+  set(_macos_archs "${CMAKE_OSX_ARCHITECTURES}")
+  if(NOT _macos_archs)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+      set(_macos_archs "arm64")
+    else()
+      set(_macos_archs "x86_64")
+    endif()
+  endif()
+
+  if(_macos_archs MATCHES "arm64" AND _macos_archs MATCHES "x86_64")
+    set(MACOS_PACKAGE_ARCH "universal")
+  elseif(_macos_archs MATCHES "arm64")
+    set(MACOS_PACKAGE_ARCH "arm64")
+  elseif(_macos_archs MATCHES "x86_64")
+    set(MACOS_PACKAGE_ARCH "x64")
+  else()
+    set(MACOS_PACKAGE_ARCH "universal")
+  endif()
+
+  set(MACOS_INSTALLER_PKG
+    "${CMAKE_PROJECT_NAME}-${CMAKE_PROJECT_VERSION}-macos-${MACOS_PACKAGE_ARCH}-Installer.pkg"
+  )
+
   configure_file(cmake/macos/resources/distribution.in "${CMAKE_CURRENT_BINARY_DIR}/distribution" @ONLY)
   configure_file(cmake/macos/resources/create-package.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/create-package.cmake" @ONLY)
   install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/create-package.cmake")
