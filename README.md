@@ -29,14 +29,14 @@ Inspired by [DistroAV](https://github.com/DistroAV/DistroAV)'s dedicated-output 
 
 ## Install
 
-1. Download a release for your platform (or [build from source](#build-from-source)).
-2. Install the plugin into OBS’s user plugins folder:
+1. Download a [release](https://github.com/bentodman/deck-out/releases) for your platform (or [build from source](#build-from-source)).
+2. Install the package, or copy the plugin into OBS’s user plugins folder:
 
-| Platform | Path |
-|----------|------|
-| macOS | `~/Library/Application Support/obs-studio/plugins/` |
-| Windows | `%APPDATA%\obs-studio\plugins\` |
-| Linux | `~/.config/obs-studio/plugins/` |
+| Platform | Package | Manual path |
+|----------|---------|-------------|
+| macOS | `.pkg` installer | `~/Library/Application Support/obs-studio/plugins/` |
+| Windows | `.zip` (extract into plugins folder) | `%APPDATA%\obs-studio\plugins\` |
+| Linux | `.deb` (`sudo dpkg -i …`) | `~/.config/obs-studio/plugins/` |
 
 3. Restart OBS.
 
@@ -53,14 +53,38 @@ Stop the output before changing device/mode settings. Only one filter (or Tools 
 
 You need CMake **3.30.5+** and a C/C++ toolchain. On first configure, macOS/Windows download OBS build deps into `.deps/`; Linux uses system OBS packages.
 
+After building, use the **package** steps below to produce installable artifacts under `release/`.
+
 ### macOS
+
+The `macos` preset builds a **universal** binary (`arm64` + `x86_64`). That works when OBS/deps are universal (the first configure downloads them into `.deps/`).
+
+If you only have **Apple Silicon** OBS (arm64-only — typical for `/Applications/OBS.app`), build arm64 only or the x86_64 link will fail:
+
+```bash
+cmake --preset macos -DCMAKE_OSX_ARCHITECTURES=arm64
+cmake --build --preset macos --parallel
+```
+
+Universal build (downloaded `.deps`):
 
 ```bash
 cmake --preset macos
 cmake --build --preset macos --parallel
-cp -R build_macos/RelWithDebInfo/deck-out.plugin \
-  ~/Library/Application\ Support/obs-studio/plugins/
 ```
+
+**Package** (creates the `.pkg` installer and plugin bundle):
+
+```bash
+cmake --install build_macos --config RelWithDebInfo --prefix release/RelWithDebInfo
+```
+
+Artifacts:
+
+- `release/RelWithDebInfo/deck-out.pkg` — installer
+- `release/RelWithDebInfo/deck-out.plugin` — plugin bundle (manual install)
+
+Optional: put machine-specific overrides (local OBS paths, `CMAKE_OSX_ARCHITECTURES`, etc.) in a gitignored `CMakeUserPresets.json`.
 
 ### Windows
 
@@ -69,7 +93,14 @@ cmake --preset windows-x64
 cmake --build --preset windows-x64 --parallel
 ```
 
-Copy `build_x64\RelWithDebInfo\deck-out.dll` into `%APPDATA%\obs-studio\plugins\deck-out\bin\64bit\`.
+**Package** (installs the plugin layout, then zip it):
+
+```powershell
+cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo
+Compress-Archive -Path release/RelWithDebInfo/deck-out -DestinationPath release/deck-out-windows-x64.zip -Force
+```
+
+Artifact: `release/deck-out-windows-x64.zip` — extract into `%APPDATA%\obs-studio\plugins\` so you get `plugins\deck-out\bin\64bit\deck-out.dll`.
 
 ### Linux (Ubuntu)
 
@@ -79,7 +110,17 @@ cmake --preset ubuntu-x86_64
 cmake --build --preset ubuntu-x86_64 --parallel
 ```
 
-Install the `.so` under `~/.config/obs-studio/plugins/deck-out/bin/64bit/`.
+**Package** (creates a `.deb` via CPack):
+
+```bash
+cmake --build build_x86_64 --target package
+```
+
+Artifact: `release/deck-out-*-x86_64.deb` (exact name includes version and architecture). Install with:
+
+```bash
+sudo dpkg -i release/deck-out-*.deb
+```
 
 ## License
 
