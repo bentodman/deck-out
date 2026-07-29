@@ -18,3 +18,4 @@ cmake/.CMakeBuildNumber
 *~
 .idea/
 .vscode/
+.vs/

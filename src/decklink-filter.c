@@ -322,6 +322,18 @@ static obs_data_t *deckout_build_output_settings(obs_data_t *filter_settings)
 	return output_settings;
 }
 
+static void deckout_configure_canvas_for_keyer(struct obs_video_info *ovi, long long keyer)
+{
+	if (keyer == 0)
+		return;
+
+	/* DeckLink keyer derives the key signal from BGRA alpha. A YUV canvas has no
+	 * alpha plane, so conversion to BGRA sets alpha=255 everywhere (solid white key). */
+	ovi->output_format = VIDEO_FORMAT_BGRA;
+	ovi->range = VIDEO_RANGE_FULL;
+	ovi->gpu_conversion = false;
+}
+
 static void deckout_log_demanded_mode(struct deckout_filter *filter, obs_data_t *settings, long long mode_id)
 {
 	char resolved_mode[256];
@@ -871,16 +883,19 @@ static void deckout_filter_stop_internal(struct deckout_filter *filter, bool pre
 		parent ? obs_source_get_name(parent) : "(null)", device_hash ? device_hash : "(null)");
 
 	if (output) {
-		/* Disconnect media before stop so the canvas video thread is not blocked in callbacks. */
-		obs_output_set_media(output, NULL, NULL);
-		obs_log(LOG_INFO, "[deck-out] Output media cleared");
-
-		if (g_shutting_down)
+		/*
+		 * Keep output->video set until stop finishes. obs_output_set_media(NULL)
+		 * only nulls the pointer and does not disconnect; end_data_capture would
+		 * then skip stop_raw_video and leave default_raw_video_callback on the
+		 * canvas video — releasing the canvas races that and crashes.
+		 */
+		if (obs_output_active(output) || g_shutting_down)
 			obs_output_force_stop(output);
 		else
 			obs_output_stop(output);
 		obs_log(LOG_INFO, "[deck-out] Output stop requested");
 
+		/* Destroy waits for end_data_capture_thread (disconnects raw video/audio). */
 		obs_output_release(output);
 		obs_log(LOG_INFO, "[deck-out] Output released");
 	}
@@ -1099,8 +1114,11 @@ static void deckout_filter_start(void *data, obs_data_t *settings)
 	ovi.output_width = conversion->width;
 	ovi.output_height = conversion->height;
 
-	obs_log(LOG_INFO, "[deck-out] Output video queue: %ux%u @ %u/%u (mode-matched, format=%d)",
-		conversion->width, conversion->height, ovi.fps_num, ovi.fps_den, (int)ovi.output_format);
+	deckout_configure_canvas_for_keyer(&ovi, keyer);
+
+	obs_log(LOG_INFO, "[deck-out] Output video queue: %ux%u @ %u/%u (mode-matched, format=%s%s)",
+		conversion->width, conversion->height, ovi.fps_num, ovi.fps_den, get_video_format_name(ovi.output_format),
+		keyer != 0 ? ", keyer alpha enabled" : "");
 
 	filter->canvas = obs_canvas_create_private(output_name, &ovi, EPHEMERAL);
 	if (!filter->canvas) {
@@ -1314,7 +1332,11 @@ static void deckout_filter_frontend_event(enum obs_frontend_event event, void *d
 static const char *deckout_filter_get_name(void *unused)
 {
 	UNUSED_PARAMETER(unused);
-	return obs_module_text("Deckout.FilterName");
+	const char *name = obs_module_text("Deckout.FilterName");
+	/* Fallback when locale data is missing (e.g. DLL installed without data/). */
+	if (!name || strcmp(name, "Deckout.FilterName") == 0)
+		return "DeckLink Output";
+	return name;
 }
 
 static void deckout_filter_update(void *data, obs_data_t *settings)

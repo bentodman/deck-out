@@ -42,5 +42,8 @@
     "author": "Ben Todman",
     "website": "https://www.flashbang.media",
     "github": "https://github.com/bentodman",
-    "email": "info@flashbangmedia.co.uk"
+    "email": "info@flashbangmedia.co.uk",
+    "uuids": {
+        "windowsApp": "2FD6CE5A-78F7-4F78-A833-55EBC1224604"
+    }
 }

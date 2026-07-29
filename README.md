@@ -24,7 +24,7 @@ Inspired by [DistroAV](https://github.com/DistroAV/DistroAV)'s dedicated-output 
 |----------|--------|
 | macOS (Apple Silicon) | Tested |
 | macOS (Intel) | Not tested |
-| Windows | Not tested |
+| Windows | Tested |
 | Linux | Not tested |
 
 ## Install
@@ -35,7 +35,7 @@ Inspired by [DistroAV](https://github.com/DistroAV/DistroAV)'s dedicated-output 
 | Platform | Package | Manual path |
 |----------|---------|-------------|
 | macOS | `.pkg` installer | `~/Library/Application Support/obs-studio/plugins/` |
-| Windows | `.zip` (extract into plugins folder) | `%APPDATA%\obs-studio\plugins\` |
+| Windows | `.exe` installer or `.zip` | `%PROGRAMDATA%\obs-studio\plugins\` |
 | Linux | `.deb` (`sudo dpkg -i …`) | `~/.config/obs-studio/plugins/` |
 
 3. Restart OBS.
@@ -88,19 +88,24 @@ Optional: put machine-specific overrides (local OBS paths, `CMAKE_OSX_ARCHITECTU
 
 ### Windows
 
+Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php) to package.
+
 ```powershell
 cmake --preset windows-x64
 cmake --build --preset windows-x64 --parallel
 ```
 
-**Package** (installs the plugin layout, then zip it):
+**Package** (creates the installer and zip):
 
 ```powershell
 cmake --install build_x64 --config RelWithDebInfo --prefix release/RelWithDebInfo
-Compress-Archive -Path release/RelWithDebInfo/deck-out -DestinationPath release/deck-out-windows-x64.zip -Force
+.\.github\scripts\Package-Windows.ps1 -Target x64 -Configuration RelWithDebInfo
 ```
 
-Artifact: `release/deck-out-windows-x64.zip` — extract into `%APPDATA%\obs-studio\plugins\` so you get `plugins\deck-out\bin\64bit\deck-out.dll`.
+Artifacts:
+
+- `release/deck-out-*-windows-x64-Installer.exe` — installer (requires admin; installs to `%PROGRAMDATA%`)
+- `release/deck-out-*-windows-x64.zip` — manual install into `%PROGRAMDATA%\obs-studio\plugins\`
 
 ### Linux (Ubuntu)
 

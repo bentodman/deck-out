@@ -58,4 +58,17 @@ if(ENABLE_FRONTEND_API)
   target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_FRONTEND_API=1)
 endif()
 
+if(OS_WINDOWS)
+  set(valid_uuid FALSE)
+  check_uuid(${WINDOWS_APP_UUID} valid_uuid)
+  if(NOT valid_uuid)
+    message(FATAL_ERROR "Specified Windows package UUID is not a valid UUID value: ${WINDOWS_APP_UUID}")
+  endif()
+
+  configure_file(
+    cmake/windows/resources/installer-Windows.iss.in
+    "${CMAKE_CURRENT_BINARY_DIR}/installer-Windows.generated.iss"
+  )
+endif()
+
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
